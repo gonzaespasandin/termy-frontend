@@ -29,8 +29,11 @@
       <div class="flex items-center gap-4">
         <h1 class="text-3xl text-gray-800">Panel de Operador</h1>
         <div class="flex gap-2">
-          <span v-if="user?.window" class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-            {{ user.window.name }}
+          <span v-if="assignedWindow" class="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-semibold">
+            <i class="fas fa-desktop mr-1"></i>{{ assignedWindow.name }} (#{{ assignedWindow.number }})
+          </span>
+          <span v-else-if="windowError" class="text-sm bg-red-100 text-red-800 px-3 py-1 rounded-full">
+            <i class="fas fa-exclamation-triangle mr-1"></i>Sin ventanilla asignada
           </span>
           <span v-if="user?.services" class="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full">
             {{ user.services.length }} servicio(s) asignado(s)
@@ -48,7 +51,32 @@
       </div>
     </div>
 
-    <div class="flex-1 grid grid-cols-2 gap-8 p-8 overflow-hidden">
+    <!-- Mensaje de error si no tiene ventanilla asignada -->
+    <div v-if="windowError && !assignedWindow" class="flex-1 flex items-center justify-center p-8">
+      <div class="max-w-2xl p-8 bg-red-50 border-2 border-red-300 rounded-lg shadow-lg">
+        <div class="flex items-start gap-6">
+          <i class="fas fa-exclamation-circle text-red-600 text-6xl"></i>
+          <div>
+            <h3 class="text-2xl font-bold text-red-800 mb-3">Esta PC no está asignada a ninguna ventanilla</h3>
+            <p class="text-red-700 mb-3 text-lg">{{ windowError }}</p>
+            <p class="text-red-600 mb-4">
+              No puede operar turnos sin una ventanilla asignada.
+            </p>
+            <div class="bg-red-100 border border-red-400 rounded p-4 text-sm text-red-800">
+              <p class="font-semibold mb-2">Solución:</p>
+              <ol class="list-decimal ml-5 space-y-1">
+                <li>Contacte al administrador del sistema</li>
+                <li>Solicite que asigne una ventanilla a esta IP en el panel de administración (tab "Ventanillas")</li>
+                <li>Recargue esta página después de la asignación</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paneles de operación (solo si tiene ventanilla asignada) -->
+    <div v-if="assignedWindow" class="flex-1 grid grid-cols-2 gap-8 p-8 overflow-hidden">
       <!-- Panel izquierdo: Turno actual -->
       <div class="bg-white rounded-lg p-6 shadow-lg flex flex-col">
         <h2 class="text-2xl mb-6 text-gray-800">Turno Actual</h2>
@@ -209,11 +237,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import { getOperatorQueue, getUser, logout as apiLogout } from '../api';
+import { getOperatorQueue, getUser, logout as apiLogout, getWindowByIp } from '../api';
 import api from '../api';
 
 const router = useRouter();
 const user = ref(null);
+const assignedWindow = ref(null);
+const windowError = ref('');
 const currentTurn = ref(null);
 const waiting = ref([]);
 const waitingTurns = ref([]); // Alias para compatibilidad
@@ -256,6 +286,11 @@ const showConfirm = (title, message, onConfirm) => {
 };
 
 const loadQueue = async () => {
+  // No cargar cola si no tiene ventanilla asignada
+  if (!assignedWindow.value) {
+    return;
+  }
+  
   try {
     const response = await getOperatorQueue(); // Usar endpoint protegido
     waiting.value = response.data.waiting || [];
@@ -273,6 +308,12 @@ const loadQueue = async () => {
 };
 
 const callNext = async () => {
+  // Verificar si tiene ventanilla asignada
+  if (!assignedWindow.value) {
+    showToast('No tienes ventanilla asignada. No puedes llamar turnos.', 'error');
+    return;
+  }
+
   // Verificar si ya tiene un turno activo
   if (currentTurn.value) {
     showToast('Ya tienes un turno activo. Complétalo o cancélalo primero.', 'error');
@@ -296,6 +337,12 @@ const callNext = async () => {
 };
 
 const callSpecific = async (turn) => {
+  // Verificar si tiene ventanilla asignada
+  if (!assignedWindow.value) {
+    showToast('No tienes ventanilla asignada. No puedes llamar turnos.', 'error');
+    return;
+  }
+
   // Verificar si ya tiene un turno activo
   if (currentTurn.value) {
     showToast('Ya tienes un turno activo. Complétalo o cancélalo primero.', 'error');
@@ -304,7 +351,7 @@ const callSpecific = async (turn) => {
 
   try {
     const response = await api.post(`/turns/${turn.id}/call`, {
-      window_id: user.value?.window_id || 1,
+      window_id: assignedWindow.value.id,
     });
     
     currentTurn.value = response.data;
@@ -448,6 +495,24 @@ const loadUser = async () => {
   }
 };
 
+const loadWindow = async () => {
+  try {
+    const response = await getWindowByIp();
+    assignedWindow.value = response.data;
+    windowError.value = '';
+    console.log(`✅ Ventanilla asignada: ${assignedWindow.value.name} (${assignedWindow.value.ip_address})`);
+  } catch (error) {
+    console.error('Error cargando ventanilla:', error);
+    windowError.value = error.response?.data?.error || 'Error al cargar ventanilla';
+    
+    // Mostrar toast de error
+    showToast(
+      `No hay ventanilla asignada a esta PC. IP: ${error.response?.data?.ip || 'desconocida'}`,
+      'error'
+    );
+  }
+};
+
 const connectSSE = () => {
   const token = localStorage.getItem('token');
   
@@ -495,8 +560,10 @@ const connectSSE = () => {
   };
 };
 
-onMounted(() => {
-  loadUser();
+onMounted(async () => {
+  await loadUser();
+  await loadWindow(); // Verificar ventanilla asignada por IP
+  
   loadQueue(); // Carga inicial
   
   // Elegir método de actualización

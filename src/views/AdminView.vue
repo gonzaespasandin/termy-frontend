@@ -658,6 +658,72 @@
           </div>
         </div>
 
+        <!-- Ventanillas -->
+        <div v-if="activeTab === 'ventanillas'" class="space-y-6">
+          <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-bold text-gray-800">Gestión de Ventanillas</h2>
+            <button @click="openWindowModal()" class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+              <i class="fas fa-plus mr-2"></i>Nueva Ventanilla
+            </button>
+          </div>
+
+          <!-- Explicación -->
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+            <i class="fas fa-info-circle mr-2"></i>
+            Las <strong>ventanillas</strong> se asignan automáticamente por <strong>IP</strong>. Cuando un operador abre <code class="bg-blue-100 px-1 rounded">/operator</code>, el sistema detecta su IP y lo asocia a la ventanilla correspondiente. El <strong>número</strong> de ventanilla se muestra en el display cuando se llama un turno.
+          </div>
+          
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Número</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP Asignada</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Servicios</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <tr v-if="windowsLoading" class="text-center text-gray-500">
+                  <td colspan="6" class="py-8">Cargando ventanillas...</td>
+                </tr>
+                <tr v-else-if="windows.length === 0" class="text-center text-gray-500">
+                  <td colspan="6" class="py-8">No hay ventanillas creadas</td>
+                </tr>
+                <tr v-else v-for="window in windows" :key="window.id">
+                  <td class="px-6 py-4">
+                    <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-bold">{{ window.number }}</span>
+                  </td>
+                  <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ window.name }}</td>
+                  <td class="px-6 py-4">
+                    <code v-if="window.ip_address" class="bg-gray-100 px-2 py-1 rounded text-sm font-mono">{{ window.ip_address }}</code>
+                    <span v-else class="text-gray-400 italic text-sm">Sin IP</span>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-600">
+                    <span v-if="!window.service_names || window.service_names.length === 0" class="text-gray-400 italic">Todos</span>
+                    <span v-else>{{ window.service_names.join(', ') }}</span>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="px-2 py-1 text-xs rounded-full" :class="window.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                      {{ window.is_active ? 'Activa' : 'Inactiva' }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-sm space-x-3">
+                    <button @click="openWindowModal(window)" class="text-blue-600 hover:text-blue-800" title="Editar">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button @click="handleDeleteWindow(window)" class="text-red-600 hover:text-red-800" title="Eliminar">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Servicios -->
         <div v-if="activeTab === 'servicios'" class="space-y-6">
           <div class="flex justify-between items-center">
@@ -897,6 +963,71 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de Ventanilla -->
+    <div v-if="showWindowModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white p-8 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <h3 class="text-2xl font-bold mb-6">{{ editingWindow ? 'Editar Ventanilla' : 'Nueva Ventanilla' }}</h3>
+        
+        <!-- Error en modal -->
+        <div v-if="windowError" class="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+          {{ windowError }}
+        </div>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+            <input v-model="windowForm.name" type="text" placeholder="Ej: Caja 1, Recepción" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" />
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Número *</label>
+            <input v-model.number="windowForm.number" type="number" min="1" placeholder="Ej: 1, 2, 3..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" />
+            <p class="text-xs text-gray-500 mt-1">Este número se muestra en el display público</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">IP Asignada (opcional)</label>
+            <input v-model="windowForm.ip_address" type="text" placeholder="Ej: 192.168.0.10" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 font-mono" />
+            <p class="text-xs text-gray-500 mt-1">La PC con esta IP será asociada automáticamente a esta ventanilla</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Servicios que puede atender (opcional)</label>
+            <div v-if="servicesLoadingForWindow" class="text-gray-500 text-sm py-2">
+              Cargando servicios...
+            </div>
+            <div v-else-if="services.length === 0" class="text-gray-500 text-sm py-2">
+              No hay servicios creados. <span class="text-blue-600 cursor-pointer" @click="closeWindowModal(); activeTab = 'servicios'">Crear servicios primero</span>
+            </div>
+            <div v-else class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-3">
+              <label v-for="service in services" :key="service.id" class="flex items-center gap-2">
+                <input v-model="windowForm.services" :value="service.id" type="checkbox" class="w-4 h-4" />
+                <span class="text-sm">{{ service.name }}</span>
+                <span class="text-xs text-gray-400">({{ service.code }})</span>
+              </label>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Si no selecciona ninguno, la ventanilla puede atender todos los servicios</p>
+          </div>
+          
+          <div>
+            <label class="flex items-center gap-2">
+              <input v-model="windowForm.is_active" type="checkbox" class="w-4 h-4" />
+              <span class="text-sm font-medium text-gray-700">Ventanilla activa</span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="flex gap-4 mt-6">
+          <button @click="saveWindow" :disabled="windowSaving" class="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition disabled:opacity-50">
+            <i class="fas fa-save mr-2"></i>{{ windowSaving ? 'Guardando...' : 'Guardar' }}
+          </button>
+          <button @click="closeWindowModal" class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -918,6 +1049,10 @@ import {
   createTotem,
   updateTotem,
   deleteTotem,
+  getWindows,
+  createWindow,
+  updateWindow,
+  deleteWindow,
   getDashboardStats,
   getHistory,
   getOperators,
@@ -990,6 +1125,7 @@ const tabs = [
   { id: 'historial', name: 'Historial', icon: 'fas fa-history' },
   { id: 'usuarios', name: 'Usuarios', icon: 'fas fa-users' },
   { id: 'perfiles', name: 'Perfiles', icon: 'fas fa-layer-group' },
+  { id: 'ventanillas', name: 'Ventanillas', icon: 'fas fa-desktop' },
   { id: 'servicios', name: 'Servicios', icon: 'fas fa-clipboard-list' },
 ];
 
@@ -1039,6 +1175,22 @@ const profileForm = ref({
   services: [],
   is_active: true,
   ask_customer_name: true,
+});
+
+// Estado de ventanillas
+const windows = ref([]);
+const windowsLoading = ref(false);
+const servicesLoadingForWindow = ref(false);
+const showWindowModal = ref(false);
+const editingWindow = ref(null);
+const windowSaving = ref(false);
+const windowError = ref('');
+const windowForm = ref({
+  name: '',
+  number: null,
+  ip_address: '',
+  services: [],
+  is_active: true,
 });
 
 const loadUser = async () => {
@@ -1523,6 +1675,114 @@ const handleDeleteProfile = (profile) => {
   );
 };
 
+// Ventanillas
+const loadWindows = async () => {
+  windowsLoading.value = true;
+  try {
+    const response = await getWindows();
+    windows.value = response.data;
+  } catch (error) {
+    console.error('Error cargando ventanillas:', error);
+    showToast('Error al cargar ventanillas', 'error');
+  } finally {
+    windowsLoading.value = false;
+  }
+};
+
+const loadServicesForWindowModal = async () => {
+  if (services.value.length > 0) return;
+  
+  servicesLoadingForWindow.value = true;
+  try {
+    const response = await getServices();
+    services.value = response.data;
+  } catch (error) {
+    console.error('Error cargando servicios:', error);
+  } finally {
+    servicesLoadingForWindow.value = false;
+  }
+};
+
+const openWindowModal = async (window = null) => {
+  windowError.value = '';
+  
+  // Cargar servicios si no están cargados
+  await loadServicesForWindowModal();
+  
+  if (window) {
+    editingWindow.value = window;
+    windowForm.value = {
+      name: window.name,
+      number: window.number,
+      ip_address: window.ip_address || '',
+      services: Array.isArray(window.services) ? window.services : [],
+      is_active: window.is_active !== undefined ? window.is_active : true,
+    };
+  } else {
+    editingWindow.value = null;
+    windowForm.value = {
+      name: '',
+      number: null,
+      ip_address: '',
+      services: [],
+      is_active: true,
+    };
+  }
+  showWindowModal.value = true;
+};
+
+const closeWindowModal = () => {
+  showWindowModal.value = false;
+  editingWindow.value = null;
+  windowError.value = '';
+};
+
+const saveWindow = async () => {
+  windowError.value = '';
+  
+  if (!windowForm.value.name || !windowForm.value.number) {
+    windowError.value = 'Nombre y número son obligatorios';
+    return;
+  }
+  
+  windowSaving.value = true;
+  try {
+    if (editingWindow.value) {
+      await updateWindow(editingWindow.value.id, windowForm.value);
+      showToast('Ventanilla actualizada correctamente');
+    } else {
+      await createWindow(windowForm.value);
+      showToast('Ventanilla creada correctamente');
+    }
+    await loadWindows();
+    closeWindowModal();
+  } catch (error) {
+    console.error('Error guardando ventanilla:', error);
+    windowError.value = error.response?.data?.errors 
+      ? Object.values(error.response.data.errors).flat().join(', ')
+      : error.response?.data?.message || 'Error al guardar ventanilla';
+  } finally {
+    windowSaving.value = false;
+  }
+};
+
+const handleDeleteWindow = (window) => {
+  showConfirm(
+    'Eliminar Ventanilla',
+    `¿Está seguro de eliminar la ventanilla "${window.name}"?`,
+    async () => {
+      try {
+        await deleteWindow(window.id);
+        await loadWindows();
+        showToast('Ventanilla eliminada correctamente');
+      } catch (error) {
+        console.error('Error eliminando ventanilla:', error);
+        showToast(error.response?.data?.message || 'Error al eliminar ventanilla', 'error');
+      }
+    }
+  );
+};
+
 // Watcher para cargar datos cuando cambia la pestaña
 watch(activeTab, (newTab) => {
   if (newTab === 'dashboard') {
@@ -1547,6 +1807,9 @@ watch(activeTab, (newTab) => {
   }
   if (newTab === 'perfiles' && profiles.value.length === 0) {
     loadProfiles();
+  }
+  if (newTab === 'ventanillas' && windows.value.length === 0) {
+    loadWindows();
   }
 });
 

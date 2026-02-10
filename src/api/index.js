@@ -37,6 +37,15 @@ export const createTotem = (data) => api.post('/admin/totems', data);
 export const updateTotem = (id, data) => api.put(`/admin/totems/${id}`, data);
 export const deleteTotem = (id) => api.delete(`/admin/totems/${id}`);
 
+// CRUD Ventanillas (admin)
+export const getWindows = () => api.get('/admin/windows');
+export const createWindow = (data) => api.post('/admin/windows', data);
+export const updateWindow = (id, data) => api.put(`/admin/windows/${id}`, data);
+export const deleteWindow = (id) => api.delete(`/admin/windows/${id}`);
+
+// Obtener ventanilla por IP (operador)
+export const getWindowByIp = () => api.get('/windows/by-ip');
+
 // Dashboard (admin)
 export const getDashboardStats = () => api.get('/admin/dashboard/stats');
 
