@@ -1,5 +1,5 @@
 <template>
-  <div class="w-screen h-screen px-16 py-12 overflow-hidden m-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+  <div class="w-screen h-screen px-8 py-6 overflow-hidden m-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
     
     <!-- Mensaje de error global -->
     <transition name="fade">
@@ -9,34 +9,56 @@
     </transition>
     
     <div class="max-w-full h-full mx-auto flex flex-col">
-      <!-- Info del totem en la esquina (si está configurado desde Electron) -->
-      <div v-if="totemConfigured" class="absolute top-4 right-4 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-lg">
-        <p class="text-white text-sm font-semibold">{{ totemName }}</p>
+      <!-- Header con logos -->
+      <div class="flex justify-between items-center mb-4" style="height: 12vh;">
+        <!-- Logo empresa cliente (izquierda) -->
+        <div class="bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center" style="width: 20%; height: 100%; padding: 1rem;">
+          <div class="text-white text-center">
+            <div class="text-sm font-semibold mb-1">Logo</div>
+            <div class="text-xs">Cliente</div>
+          </div>
+        </div>
+
+        <!-- Título central -->
+        <div class="flex-1 text-center px-8">
+          <p class="text-white/90" :style="{ fontSize: getHeaderFontSize() }">Seleccione el servicio que desea solicitar</p>
+        </div>
+
+        <!-- Logo nuestra empresa (derecha) -->
+        <div class="bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center" style="width: 20%; height: 100%; padding: 1rem;">
+          <div class="text-white text-center">
+            <div class="text-sm font-semibold mb-1">Logo</div>
+            <div class="text-xs">Turnero</div>
+          </div>
+        </div>
       </div>
 
-      <h1 class="text-6xl text-white text-center mb-2">Bienvenido</h1>
-      <p class="text-3xl text-white/90 text-center mb-8">Seleccione el servicio que desea solicitar</p>
-
-      <div v-if="loading" class="text-center text-white text-3xl py-12">
+      <div v-if="loading" class="text-center text-white flex-1 flex items-center justify-center" :style="{ fontSize: getHeaderFontSize() }">
         Cargando servicios...
       </div>
 
-      <div v-else class="grid grid-cols-3 gap-10 flex-1 content-center">
-        <div
-          v-for="service in services"
-          :key="service.id"
-          class="bg-white rounded-3xl p-10 text-center cursor-pointer transition-all duration-200 border-4 border-transparent hover:-translate-y-2 hover:scale-105 hover:shadow-2xl flex flex-col justify-center min-h-[200px]"
-          :style="{ borderColor: service.color }"
-          @click="selectService(service)"
+      <!-- Grid de servicios responsive -->
+      <div v-else class="flex-1 flex items-center justify-center" style="height: calc(88vh - 2rem);">
+        <div 
+          class="services-grid w-full h-full"
+          :style="getGridStyle()"
         >
-          <div 
-            class="w-24 h-24 mx-auto mb-4 rounded-full flex items-center justify-center text-white text-4xl font-bold"
-            :style="{ backgroundColor: service.color }"
+          <div
+            v-for="service in services"
+            :key="service.id"
+            class="service-card bg-white rounded-2xl text-center cursor-pointer transition-all duration-200 border-4 border-transparent hover:-translate-y-2 hover:scale-105 hover:shadow-2xl flex flex-col justify-center"
+            :style="{ borderColor: service.color, ...getCardStyle() }"
+            @click="selectService(service)"
           >
-            {{ service.code }}
+            <div 
+              class="icon-circle mx-auto mb-2 rounded-full flex items-center justify-center text-white font-bold"
+              :style="{ backgroundColor: service.color, ...getIconStyle() }"
+            >
+              {{ service.code }}
+            </div>
+            <h3 class="my-2 text-gray-800 font-semibold" :style="{ fontSize: getServiceNameFontSize() }">{{ service.name }}</h3>
+            <p class="text-gray-600" :style="{ fontSize: getServiceDescFontSize() }">{{ service.description }}</p>
           </div>
-          <h3 class="my-4 text-3xl text-gray-800">{{ service.name }}</h3>
-          <p class="text-gray-600 text-lg">{{ service.description }}</p>
         </div>
       </div>
 
@@ -107,7 +129,7 @@
 </template>
   
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { getTotemServices, createTurn, getServices } from '../api';
 import * as printService from '../services/printService';
 
@@ -141,6 +163,101 @@ const showError = (message) => {
   setTimeout(() => {
     errorMessage.value = '';
   }, 4000);
+};
+
+// Calcular columnas y filas según cantidad de servicios
+const getGridLayout = () => {
+  const count = services.value.length;
+  
+  if (count === 0) return { cols: 1, rows: 1 };
+  if (count <= 3) return { cols: 3, rows: 1 };
+  if (count <= 6) return { cols: 3, rows: 2 };
+  if (count <= 9) return { cols: 3, rows: 3 };
+  if (count <= 12) return { cols: 4, rows: 3 };
+  if (count <= 15) return { cols: 5, rows: 3 };
+  return { cols: 6, rows: Math.ceil(count / 6) };
+};
+
+// Calcular estilo del grid
+const getGridStyle = () => {
+  const layout = getGridLayout();
+  const count = services.value.length;
+  
+  // Gap más pequeño para muchos servicios
+  const gap = count <= 6 ? '2.5rem' : count <= 9 ? '1.5rem' : '1rem';
+  
+  return {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+    gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
+    gap: gap,
+    padding: '1rem',
+  };
+};
+
+// Calcular estilo de las cards
+const getCardStyle = () => {
+  const count = services.value.length;
+  
+  // Padding más pequeño para muchos servicios
+  const padding = count <= 6 ? '2rem' : count <= 9 ? '1.5rem' : '1rem';
+  
+  return {
+    padding: padding,
+  };
+};
+
+// Calcular estilo del icono circular
+const getIconStyle = () => {
+  const count = services.value.length;
+  
+  // Tamaño del icono según cantidad de servicios
+  let size, fontSize;
+  if (count <= 3) {
+    size = '6rem';
+    fontSize = '2.5rem';
+  } else if (count <= 6) {
+    size = '5rem';
+    fontSize = '2rem';
+  } else if (count <= 9) {
+    size = '4rem';
+    fontSize = '1.5rem';
+  } else {
+    size = '3rem';
+    fontSize = '1.25rem';
+  }
+  
+  return {
+    width: size,
+    height: size,
+    fontSize: fontSize,
+  };
+};
+
+// Tamaño de fuente para el título del header
+const getHeaderFontSize = () => {
+  const count = services.value.length;
+  if (count <= 6) return '2rem';
+  if (count <= 9) return '1.75rem';
+  return '1.5rem';
+};
+
+// Tamaño de fuente para nombres de servicios
+const getServiceNameFontSize = () => {
+  const count = services.value.length;
+  if (count <= 3) return '2rem';
+  if (count <= 6) return '1.75rem';
+  if (count <= 9) return '1.5rem';
+  return '1.25rem';
+};
+
+// Tamaño de fuente para descripciones
+const getServiceDescFontSize = () => {
+  const count = services.value.length;
+  if (count <= 3) return '1.125rem';
+  if (count <= 6) return '1rem';
+  if (count <= 9) return '0.875rem';
+  return '0.75rem';
 };
 
 onMounted(async () => {
@@ -296,4 +413,29 @@ const formatTime = (datetime) => {
 .fade-leave-to {
   opacity: 0;
 }
+
+/* Asegurar que el grid se adapte correctamente */
+.services-grid {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Cards responsivas */
+.service-card {
+  min-height: 0; /* Permitir que se encoja */
+  overflow: hidden;
+}
+
+/* Icono circular responsive */
+.icon-circle {
+  flex-shrink: 0;
+}
+
+/* NOTA PARA AGREGAR LOGOS:
+   Reemplazar los divs con clase "text-white text-center" en el header
+   por tags <img> con las rutas a los logos reales:
+   
+   Logo Cliente: <img src="/ruta/al/logo-cliente.png" alt="Logo Cliente" class="w-full h-full object-contain" />
+   Logo Turnero: <img src="/ruta/al/logo-turnero.png" alt="Logo Turnero" class="w-full h-full object-contain" />
+*/
 </style>
