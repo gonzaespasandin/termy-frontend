@@ -1,5 +1,8 @@
 <template>
-  <div class="w-screen h-screen px-8 py-6 overflow-hidden m-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+  <div 
+    class="w-screen h-screen px-8 py-6 overflow-hidden m-0" 
+    :style="totemBackgroundStyle"
+  >
     
     <!-- Mensaje de error global -->
     <transition name="fade">
@@ -12,8 +15,18 @@
       <!-- Header con logos -->
       <div class="flex justify-between items-center mb-4" style="height: 12vh;">
         <!-- Logo empresa cliente (izquierda) -->
-        <div class="bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center" style="width: 20%; height: 100%; padding: 1rem;">
-          <div class="text-white text-center">
+        <div 
+          class="rounded-2xl flex items-center justify-center overflow-hidden transition-all duration-300" 
+          :class="totemLogo ? '' : 'bg-white/20 backdrop-blur-sm'"
+          style="width: 20%; height: 100%; padding: 1rem;"
+        >
+          <img 
+            v-if="totemLogo" 
+            :src="totemLogo" 
+            alt="Logo Cliente" 
+            class="max-w-full max-h-full object-contain"
+          />
+          <div v-else class="text-white text-center">
             <div class="text-sm font-semibold mb-1">Logo</div>
             <div class="text-xs">Cliente</div>
           </div>
@@ -24,8 +37,9 @@
           <p class="text-white/90" :style="{ fontSize: getHeaderFontSize() }">Seleccione el servicio que desea solicitar</p>
         </div>
 
-        <!-- Logo nuestra empresa (derecha) -->
-        <div class="bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center" style="width: 20%; height: 100%; padding: 1rem;">
+        <!-- Logo nuestra empresa (derecha) - FIJO -->
+        <div class="bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center overflow-hidden" style="width: 20%; height: 100%; padding: 1rem;">
+          <!-- Aquí irá tu logo fijo de Turnero -->
           <div class="text-white text-center">
             <div class="text-sm font-semibold mb-1">Logo</div>
             <div class="text-xs">Turnero</div>
@@ -138,6 +152,7 @@ const totemConfigured = ref(false);
 const totemCode = ref('');
 const totemId = ref(null);
 const totemName = ref('');
+const totemData = ref(null); // Datos completos del totem
 const askCustomerName = ref(true); // Por defecto pide nombre
 
 // Estado de servicios y turnos
@@ -260,6 +275,29 @@ const getServiceDescFontSize = () => {
   return '0.75rem';
 };
 
+// Logo del totem (cliente)
+const totemLogo = computed(() => {
+  if (!totemData.value || !totemData.value.logo) return null;
+  return `http://192.168.0.51:8000/storage/${totemData.value.logo}`;
+});
+
+// Estilo de fondo del totem
+const totemBackgroundStyle = computed(() => {
+  if (!totemData.value) {
+    // Fondo por defecto
+    return { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' };
+  }
+  
+  if (totemData.value.background_type === 'gradient') {
+    const color1 = totemData.value.background_color_1 || '#667eea';
+    const color2 = totemData.value.background_color_2 || '#764ba2';
+    return { background: `linear-gradient(135deg, ${color1} 0%, ${color2} 100%)` };
+  } else {
+    const color = totemData.value.background_color_1 || '#667eea';
+    return { backgroundColor: color };
+  }
+});
+
 onMounted(async () => {
   // Detectar si estamos en Electron
   isElectronApp.value = printService.isElectron();
@@ -285,6 +323,7 @@ const loadTotemServices = async () => {
   loading.value = true;
   try {
     const response = await getTotemServices(totemCode.value);
+    totemData.value = response.data.totem; // Guardar datos completos
     totemId.value = response.data.totem.id;
     totemName.value = response.data.totem.name;
     services.value = response.data.services;
@@ -292,6 +331,7 @@ const loadTotemServices = async () => {
     // Cargar configuración de si pide nombre (por defecto true si no está definido)
     askCustomerName.value = response.data.totem.ask_customer_name !== false;
     console.log('📋 Configuración del perfil - Pedir nombre:', askCustomerName.value);
+    console.log('🎨 Personalización del perfil:', totemData.value);
   } catch (error) {
     console.error('Error cargando servicios del totem:', error);
     showError('Error al cargar servicios del totem. Mostrando todos los servicios.');

@@ -951,6 +951,80 @@
             </label>
             <p class="text-xs text-gray-500 mt-1 ml-6">Si está desactivado, el ticket se imprime directamente sin mostrar el modal para ingresar nombre</p>
           </div>
+          
+          <!-- Personalización -->
+          <div class="border-t pt-4 mt-6">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">
+              <i class="fas fa-palette mr-2"></i>Personalización
+            </h4>
+            
+            <!-- Logo -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Logo de la empresa</label>
+              <div v-if="profileForm.logoPreview || profileForm.logo" class="mb-2">
+                <img :src="profileForm.logoPreview || getLogoUrl(profileForm.logo)" alt="Logo" class="h-20 object-contain border rounded p-2" />
+                <button @click="removeProfileLogo" type="button" class="text-xs text-red-600 hover:text-red-800 mt-1">
+                  <i class="fas fa-times mr-1"></i>Quitar logo
+                </button>
+              </div>
+              <input 
+                type="file" 
+                @change="handleProfileLogoUpload" 
+                accept="image/jpeg,image/png,image/webp,image/jpg"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              <div class="mt-2 space-y-1">
+                <p class="text-xs text-gray-500">
+                  <i class="fas fa-info-circle mr-1"></i>Formatos: JPG, PNG, WEBP. Máximo 2MB
+                </p>
+                <p class="text-xs text-blue-600">
+                  <i class="fas fa-ruler mr-1"></i>Medidas recomendadas: 400x200px o superior (relación 2:1)
+                </p>
+                <p class="text-xs text-gray-500">
+                  💡 Preferible usar fondo transparente (PNG) para mejor integración
+                </p>
+              </div>
+            </div>
+            
+            <!-- Tipo de fondo -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de fondo</label>
+              <select v-model="profileForm.background_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                <option value="gradient">Gradiente</option>
+                <option value="solid">Color sólido</option>
+              </select>
+            </div>
+            
+            <!-- Colores -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  {{ profileForm.background_type === 'gradient' ? 'Color 1 (inicio)' : 'Color de fondo' }}
+                </label>
+                <div class="flex gap-2">
+                  <input v-model="profileForm.background_color_1" type="color" class="h-10 w-16 border border-gray-300 rounded cursor-pointer" />
+                  <input v-model="profileForm.background_color_1" type="text" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 font-mono text-sm" />
+                </div>
+              </div>
+              
+              <div v-if="profileForm.background_type === 'gradient'">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Color 2 (fin)</label>
+                <div class="flex gap-2">
+                  <input v-model="profileForm.background_color_2" type="color" class="h-10 w-16 border border-gray-300 rounded cursor-pointer" />
+                  <input v-model="profileForm.background_color_2" type="text" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 font-mono text-sm" />
+                </div>
+              </div>
+            </div>
+            
+            <!-- Vista previa del fondo -->
+            <div class="mt-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Vista previa del fondo</label>
+              <div 
+                class="h-24 rounded-lg border-2 border-gray-300"
+                :style="getBackgroundStyle(profileForm)"
+              ></div>
+            </div>
+          </div>
         </div>
         
         <div class="flex gap-4 mt-6">
@@ -1175,6 +1249,12 @@ const profileForm = ref({
   services: [],
   is_active: true,
   ask_customer_name: true,
+  logo: null,
+  logoFile: null,
+  logoPreview: null,
+  background_type: 'gradient',
+  background_color_1: '#667eea',
+  background_color_2: '#764ba2',
 });
 
 // Estado de ventanillas
@@ -1603,6 +1683,12 @@ const openProfileModal = async (profile = null) => {
       services: Array.isArray(profile.services) ? profile.services : [],
       is_active: profile.is_active !== undefined ? profile.is_active : true,
       ask_customer_name: profile.ask_customer_name !== undefined ? profile.ask_customer_name : true,
+      logo: profile.logo || null,
+      logoFile: null,
+      logoPreview: null,
+      background_type: profile.background_type || 'gradient',
+      background_color_1: profile.background_color_1 || '#667eea',
+      background_color_2: profile.background_color_2 || '#764ba2',
     };
   } else {
     editingProfile.value = null;
@@ -1613,6 +1699,12 @@ const openProfileModal = async (profile = null) => {
       services: [],
       is_active: true,
       ask_customer_name: true,
+      logo: null,
+      logoFile: null,
+      logoPreview: null,
+      background_type: 'gradient',
+      background_color_1: '#667eea',
+      background_color_2: '#764ba2',
     };
   }
   showProfileModal.value = true;
@@ -1624,28 +1716,129 @@ const closeProfileModal = () => {
   profileError.value = '';
 };
 
+const handleProfileLogoUpload = (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Validar tamaño (máx 2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    profileError.value = 'El logo no debe superar los 2MB';
+    return;
+  }
+  
+  profileForm.value.logoFile = file;
+  
+  // Crear preview
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    profileForm.value.logoPreview = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+const removeProfileLogo = () => {
+  profileForm.value.logo = null;
+  profileForm.value.logoFile = null;
+  profileForm.value.logoPreview = null;
+};
+
+const getLogoUrl = (logoPath) => {
+  if (!logoPath) return '';
+  // La ruta del storage público en Laravel
+  return `http://192.168.0.51:8000/storage/${logoPath}`;
+};
+
+const getBackgroundStyle = (form) => {
+  if (form.background_type === 'gradient') {
+    return {
+      background: `linear-gradient(135deg, ${form.background_color_1} 0%, ${form.background_color_2} 100%)`
+    };
+  } else {
+    return {
+      backgroundColor: form.background_color_1
+    };
+  }
+};
+
+const scrollModalToTop = () => {
+  // Buscar el modal y hacer scroll al inicio
+  setTimeout(() => {
+    const modal = document.querySelector('.max-h-\\[90vh\\]');
+    if (modal) {
+      modal.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, 100);
+};
+
 const saveProfile = async () => {
   profileError.value = '';
   
   if (!profileForm.value.name || !profileForm.value.code) {
     profileError.value = 'Nombre y código son obligatorios';
+    scrollModalToTop();
     return;
   }
   
   if (!profileForm.value.services || profileForm.value.services.length === 0) {
     profileError.value = 'Debe seleccionar al menos un servicio';
+    scrollModalToTop();
     return;
   }
   
   profileSaving.value = true;
   try {
-    if (editingProfile.value) {
-      await updateTotem(editingProfile.value.id, profileForm.value);
-      showToast('Perfil actualizado correctamente');
+    // Si hay archivo de logo, usar FormData
+    if (profileForm.value.logoFile) {
+      const formData = new FormData();
+      formData.append('name', profileForm.value.name);
+      formData.append('code', profileForm.value.code);
+      formData.append('location', profileForm.value.location || '');
+      
+      // Agregar services como array individual (no JSON.stringify)
+      profileForm.value.services.forEach((serviceId) => {
+        formData.append('services[]', serviceId);
+      });
+      
+      formData.append('is_active', profileForm.value.is_active ? '1' : '0');
+      formData.append('ask_customer_name', profileForm.value.ask_customer_name ? '1' : '0');
+      formData.append('logo', profileForm.value.logoFile);
+      formData.append('background_type', profileForm.value.background_type);
+      formData.append('background_color_1', profileForm.value.background_color_1);
+      if (profileForm.value.background_type === 'gradient') {
+        formData.append('background_color_2', profileForm.value.background_color_2);
+      }
+      
+      if (editingProfile.value) {
+        formData.append('_method', 'PUT');
+        await updateTotem(editingProfile.value.id, formData);
+      } else {
+        await createTotem(formData);
+      }
     } else {
-      await createTotem(profileForm.value);
-      showToast('Perfil creado correctamente');
+      // Sin archivo, enviar JSON normal
+      const data = {
+        name: profileForm.value.name,
+        code: profileForm.value.code,
+        location: profileForm.value.location || '',
+        services: profileForm.value.services,
+        is_active: profileForm.value.is_active,
+        ask_customer_name: profileForm.value.ask_customer_name,
+        background_type: profileForm.value.background_type,
+        background_color_1: profileForm.value.background_color_1,
+      };
+      
+      if (profileForm.value.background_type === 'gradient') {
+        data.background_color_2 = profileForm.value.background_color_2;
+      }
+      
+      if (editingProfile.value) {
+        await updateTotem(editingProfile.value.id, data);
+      } else {
+        await createTotem(data);
+      }
     }
+    
+    showToast('Perfil guardado correctamente');
     await loadProfiles();
     closeProfileModal();
   } catch (error) {
@@ -1653,6 +1846,7 @@ const saveProfile = async () => {
     profileError.value = error.response?.data?.errors 
       ? Object.values(error.response.data.errors).flat().join(', ')
       : error.response?.data?.message || 'Error al guardar perfil';
+    scrollModalToTop();
   } finally {
     profileSaving.value = false;
   }

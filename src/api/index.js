@@ -33,8 +33,18 @@ export const deleteUser = (id) => api.delete(`/admin/users/${id}`);
 
 // CRUD Totems/Perfiles (admin)
 export const getTotems = () => api.get('/admin/totems');
-export const createTotem = (data) => api.post('/admin/totems', data);
-export const updateTotem = (id, data) => api.put(`/admin/totems/${id}`, data);
+export const createTotem = (data) => {
+    const config = data instanceof FormData ? {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    } : {};
+    return api.post('/admin/totems', data, config);
+};
+export const updateTotem = (id, data) => {
+    const config = data instanceof FormData ? {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    } : {};
+    return api.post(`/admin/totems/${id}`, data, config);
+};
 export const deleteTotem = (id) => api.delete(`/admin/totems/${id}`);
 
 // CRUD Ventanillas (admin)
