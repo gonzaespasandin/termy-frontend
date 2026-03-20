@@ -40,10 +40,13 @@ export const createTotem = (data) => {
     return api.post('/admin/totems', data, config);
 };
 export const updateTotem = (id, data) => {
-    const config = data instanceof FormData ? {
-        headers: { 'Content-Type': 'multipart/form-data' }
-    } : {};
-    return api.post(`/admin/totems/${id}`, data, config);
+    if (data instanceof FormData) {
+        data.append('_method', 'PUT');
+        return api.post(`/admin/totems/${id}`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    }
+    return api.put(`/admin/totems/${id}`, data);
 };
 export const deleteTotem = (id) => api.delete(`/admin/totems/${id}`);
 
