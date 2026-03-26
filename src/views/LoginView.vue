@@ -15,7 +15,7 @@
           <i class="fas fa-ticket-alt"></i>
         </div>
         <div class="brand-text">
-          <h1 class="brand-name">Turnero</h1>
+          <h1 class="brand-name">Termy</h1>
           <p class="brand-tagline">Sistema de gestión de turnos</p>
         </div>
       </div>
@@ -41,7 +41,7 @@
             type="email"
             required
             class="form-input"
-            placeholder="admin@turnero.com"
+            placeholder="email"
             autocomplete="email"
           />
         </div>
@@ -57,7 +57,7 @@
               :type="showPassword ? 'text' : 'password'"
               required
               class="form-input"
-              placeholder="••••••••"
+              placeholder="contraseña"
               autocomplete="current-password"
             />
             <button

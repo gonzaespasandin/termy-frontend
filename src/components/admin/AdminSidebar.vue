@@ -6,7 +6,7 @@
         <i class="fas fa-ticket-alt"></i>
       </div>
       <div class="brand-text">
-        <span class="brand-name">Turnero</span>
+        <span class="brand-name">Termy</span>
         <span class="brand-sub">Panel Admin</span>
       </div>
     </div>

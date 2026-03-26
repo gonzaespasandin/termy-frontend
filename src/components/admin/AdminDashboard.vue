@@ -487,10 +487,6 @@ onUnmounted(destroyCharts)
   overflow: hidden;
 }
 
-.chart-card--wide {
-  /* takes 1fr */
-}
-
 .chart-card-header {
   padding: 1.25rem 1.5rem 0;
 }
@@ -595,10 +591,6 @@ onUnmounted(destroyCharts)
   border: 1px solid #f1f5f9;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
   padding: 1.25rem 1.5rem;
-}
-
-.info-card--wide {
-  /* fills 1fr */
 }
 
 .info-card-header {
